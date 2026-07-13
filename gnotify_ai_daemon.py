@@ -376,15 +376,20 @@ def main():
     def clean_text_for_speech(text):
         if not text:
             return ""
-        # 1. URLs entfernen
-        text = re.sub(r'https?://\S+', ' Link ', text)
-        # 2. Antigravity/Terminal Befehle abkürzen
-        text = re.sub(r'Command:.*', 'Ein Terminal-Befehl.', text)
-        # 3. Datei-Pfade vereinfachen (alles was wie /ein/pfad/zu/etwas aussieht)
-        text = re.sub(r'(?:/[a-zA-Z0-9_.-]+){2,}', ' Verzeichnis ', text)
-        # 4. Markdown-Backticks entfernen
-        text = text.replace('`', '').replace('```', '')
-        # 5. Zu lange Texte nach 100 Zeichen abschneiden (optional)
+            
+        with config_lock:
+            filters = current_config.get("text_filters", [])
+            
+        for f in filters:
+            pat = f.get("pattern", "")
+            repl = f.get("replacement", "")
+            if pat:
+                try:
+                    text = re.sub(pat, repl, text)
+                except re.error:
+                    pass
+                    
+        # Längenbegrenzung als Sicherheitsanker
         if len(text) > 150:
             text = text[:150] + " und so weiter."
         return text.strip()

@@ -43,12 +43,28 @@ def show_footer():
 
 DEFAULT_CONFIG = {
     "api_url": "https://ai.dan.jetzt/v1",
-    "default_voice": "af_bella",
+    "default_voice": "de_martin",
     "rate_limit_max": 5,
     "rate_limit_window": 30,
     "deduplication_window": 5,
     "debug": False,
-    "rules": []
+    "rules": [
+        {
+            "app_name": "Slack",
+            "summary_regex": "",
+            "body_regex": "",
+            "action": "mute",
+            "voice": "",
+            "sound_file": "",
+            "tts_template": ""
+        }
+    ],
+    "text_filters": [
+        {"pattern": "https?://\\S+", "replacement": " Link "},
+        {"pattern": "Command:.*", "replacement": "Ein Terminal-Befehl."},
+        {"pattern": "(?:/[a-zA-Z0-9_.-]+){2,}", "replacement": " Verzeichnis "},
+        {"pattern": "[`]+", "replacement": ""}
+    ]
 }
 
 class LogTailer(threading.Thread):
@@ -257,6 +273,68 @@ class RuleDialog(ctk.CTkToplevel):
             
         self.destroy()
 
+
+class TextFilterDialog(ctk.CTkToplevel):
+    def __init__(self, parent, filter_rule=None, on_save=None):
+        super().__init__(parent)
+        self.title("Edit Text Filter" if filter_rule else "Add Text Filter")
+        self.geometry("450x300")
+        
+        self.transient(parent)
+        self.grab_set()
+        
+        self.filter_rule = filter_rule or {}
+        self.on_save = on_save
+        
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        
+        self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.main_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+        self.main_frame.grid_columnconfigure(1, weight=1)
+        
+        title_lbl = ctk.CTkLabel(self.main_frame, text="Text Filter Editor", font=ctk.CTkFont(size=18, weight="bold"))
+        title_lbl.grid(row=0, column=0, columnspan=2, pady=(0, 20), sticky="w")
+        
+        ctk.CTkLabel(self.main_frame, text="Search Pattern (Regex):").grid(row=1, column=0, sticky="w", pady=5)
+        self.pattern_entry = ctk.CTkEntry(self.main_frame, placeholder_text="e.g. https?://\S+")
+        self.pattern_entry.grid(row=1, column=1, sticky="ew", pady=5, padx=5)
+        self.pattern_entry.insert(0, self.filter_rule.get("pattern", ""))
+        
+        ctk.CTkLabel(self.main_frame, text="Replacement Text:").grid(row=2, column=0, sticky="w", pady=5)
+        self.repl_entry = ctk.CTkEntry(self.main_frame, placeholder_text="e.g. Link")
+        self.repl_entry.grid(row=2, column=1, sticky="ew", pady=5, padx=5)
+        self.repl_entry.insert(0, self.filter_rule.get("replacement", ""))
+        
+        self.btn_frame = ctk.CTkFrame(self.main_frame, fg_color="transparent")
+        self.btn_frame.grid(row=3, column=0, columnspan=2, pady=(30, 0), sticky="ew")
+        self.btn_frame.grid_columnconfigure((0, 1), weight=1)
+        
+        cancel_btn = ctk.CTkButton(self.btn_frame, text="Cancel", fg_color="#7f8c8d", hover_color="#95a5a6", command=self.destroy)
+        cancel_btn.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        
+        save_btn = ctk.CTkButton(self.btn_frame, text="Save Filter", fg_color="#2ecc71", hover_color="#27ae60", command=self.save_filter)
+        save_btn.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
+        
+    def save_filter(self):
+        pattern = self.pattern_entry.get().strip()
+        repl = self.repl_entry.get()
+        
+        if not pattern:
+            messagebox.showerror("Invalid Input", "Search Pattern cannot be empty.")
+            return
+            
+        try:
+            import re
+            re.compile(pattern)
+        except Exception as e:
+            messagebox.showerror("Invalid Regex", f"The pattern is not a valid regular expression:\n{e}")
+            return
+            
+        if self.on_save:
+            self.on_save({"pattern": pattern, "replacement": repl})
+        self.destroy()
+
 class GnotifyGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -300,11 +378,15 @@ class GnotifyGUI(ctk.CTk):
         self.tabview.grid(row=1, column=0, sticky="nsew", padx=15, pady=(5, 10))
         
         self.tab_config = self.tabview.add("Configuration & Rules")
+        self.tab_filters = self.tabview.add("Regex Text Filters")
         self.tab_logs = self.tabview.add("Live Logs")
         self.tab_test = self.tabview.add("Test Suite")
         
         # Setup Tab 1: Configuration & Rules
         self.setup_config_tab()
+        
+        # Setup Tab 1.5: Regex Text Filters
+        self.setup_text_filters_tab()
         
         # Setup Tab 2: Logs
         self.setup_logs_tab()
@@ -732,6 +814,90 @@ class GnotifyGUI(ctk.CTk):
         self.rebuild_rules_list()
 
     # Tab 2: Live Logs
+
+    # Tab 1.5: Text Filters
+    def setup_text_filters_tab(self):
+        self.tab_filters.grid_columnconfigure(0, weight=1)
+        self.tab_filters.grid_rowconfigure(1, weight=1)
+        
+        header_frame = ctk.CTkFrame(self.tab_filters, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        header_frame.grid_columnconfigure(0, weight=1)
+        
+        ctk.CTkLabel(header_frame, text="Regex Text Replacement Filters", font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, sticky="w")
+        add_btn = ctk.CTkButton(header_frame, text="+ Add Filter", width=100, fg_color="#2ecc71", hover_color="#27ae60", command=self.open_add_filter_dialog)
+        add_btn.grid(row=0, column=1, sticky="e")
+        
+        info_lbl = ctk.CTkLabel(self.tab_filters, text="These filters are applied to the text BEFORE it is spoken. Useful for removing long URLs or paths.", text_color="gray")
+        info_lbl.grid(row=1, column=0, sticky="nw", padx=10)
+        
+        self.filters_scroll = ctk.CTkScrollableFrame(self.tab_filters)
+        self.filters_scroll.grid(row=2, column=0, sticky="nsew", padx=10, pady=(10, 10))
+        self.filters_scroll.grid_columnconfigure(0, weight=1)
+        
+        self.rebuild_text_filters_list()
+        
+    def rebuild_text_filters_list(self):
+        for widget in self.filters_scroll.winfo_children():
+            widget.destroy()
+            
+        filters = self.config_data.get("text_filters", [])
+        if not filters:
+            no_lbl = ctk.CTkLabel(self.filters_scroll, text="No text filters defined.", font=ctk.CTkFont(slant="italic"), text_color="gray")
+            no_lbl.pack(pady=40)
+            return
+            
+        for i, f in enumerate(filters):
+            card = ctk.CTkFrame(self.filters_scroll, border_width=1, border_color="#34495e")
+            card.pack(fill="x", padx=5, pady=5)
+            card.grid_columnconfigure(0, weight=1)
+            
+            info_frame = ctk.CTkFrame(card, fg_color="transparent")
+            info_frame.grid(row=0, column=0, padx=10, pady=8, sticky="w")
+            
+            ctk.CTkLabel(info_frame, text=f"Pattern: {f.get('pattern', '')}", font=ctk.CTkFont(weight="bold")).pack(anchor="w")
+            ctk.CTkLabel(info_frame, text=f"Replacement: '{f.get('replacement', '')}'").pack(anchor="w")
+            
+            btn_frame = ctk.CTkFrame(card, fg_color="transparent")
+            btn_frame.grid(row=0, column=1, padx=10, pady=8, sticky="e")
+            
+            edit_btn = ctk.CTkButton(btn_frame, text="Edit", width=60, fg_color="#f39c12", hover_color="#d35400", command=lambda idx=i: self.open_edit_filter_dialog(idx))
+            edit_btn.pack(side="left", padx=5)
+            
+            del_btn = ctk.CTkButton(btn_frame, text="Delete", width=60, fg_color="#e74c3c", hover_color="#c0392b", command=lambda idx=i: self.delete_filter(idx))
+            del_btn.pack(side="left", padx=5)
+
+    def open_add_filter_dialog(self):
+        def on_save(new_filter):
+            if "text_filters" not in self.config_data:
+                self.config_data["text_filters"] = []
+            self.config_data["text_filters"].append(new_filter)
+            self.save_config()
+            self.rebuild_text_filters_list()
+        TextFilterDialog(self, on_save=on_save)
+        
+    def open_edit_filter_dialog(self, index):
+        filters = self.config_data.get("text_filters", [])
+        if index < 0 or index >= len(filters):
+            return
+        current = filters[index]
+        
+        def on_save(updated_filter):
+            self.config_data["text_filters"][index] = updated_filter
+            self.save_config()
+            self.rebuild_text_filters_list()
+            
+        TextFilterDialog(self, filter_rule=current, on_save=on_save)
+        
+    def delete_filter(self, index):
+        filters = self.config_data.get("text_filters", [])
+        if index < 0 or index >= len(filters):
+            return
+        if messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this text filter?"):
+            del self.config_data["text_filters"][index]
+            self.save_config()
+            self.rebuild_text_filters_list()
+
     def setup_logs_tab(self):
         self.tab_logs.grid_columnconfigure(0, weight=1)
         self.tab_logs.grid_rowconfigure(0, weight=1)
