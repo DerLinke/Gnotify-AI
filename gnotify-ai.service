@@ -1,0 +1,13 @@
+[Unit]
+Description=Gnotify AI Daemon Service
+After=dbus.service
+
+[Service]
+Type=simple
+ExecStart=/home/dan/Projekte/autoAudioProfile/Gnotify-AI/venv/bin/python3 /home/dan/Projekte/autoAudioProfile/Gnotify-AI/gnotify_ai_daemon.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

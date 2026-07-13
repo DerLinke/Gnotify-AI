@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 450 100" width="450" height="100">
+  <defs>
+    <linearGradient id="red-blue-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF0000;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0000FF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <g font-family="monospace" font-size="16" font-weight="bold">
+    <text x="10" y="20" fill="url(#red-blue-grad)" xml:space="preserve">          ██     █████</text>
+    <text x="10" y="38" fill="url(#red-blue-grad)" xml:space="preserve">     ██                    ██</text>
+    <text x="10" y="56" fill="url(#red-blue-grad)" xml:space="preserve">██                █████</text>
+    <text x="235" y="56" fill="#58a6ff">Developed with ❤️ by DerLinke &amp; Gemini CLI.</text>
+    <text x="10" y="74" fill="url(#red-blue-grad)" xml:space="preserve">     ██                    ██</text>
+    <text x="10" y="92" fill="url(#red-blue-grad)" xml:space="preserve">          ██     █████</text>
+  </g>
+</svg>

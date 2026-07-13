@@ -1,0 +1,15 @@
+GEMINI.md
+.antigravity/
+.antigravity-ide/
+.antigravitycli/
+.vscode/
+*.code-workspace
+build/
+dist/
+/tmp/
+*.bak
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+venv/
