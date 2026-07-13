@@ -62,10 +62,12 @@ DEFAULT_CONFIG = {
         }
     ],
     "text_filters": [
+        {"pattern": "(?s)```.*?```", "replacement": " Ein Code Block "},
+        {"pattern": "`[^`]+`", "replacement": " Code "},
         {"pattern": "https?://\\S+", "replacement": " Link "},
         {"pattern": "Command:.*", "replacement": "Ein Terminal-Befehl."},
         {"pattern": "(?:/[a-zA-Z0-9_.-]+){2,}", "replacement": " Verzeichnis "},
-        {"pattern": "[`]+", "replacement": ""}
+        {"pattern": "[_*\\[\\]{}()<>|\\\\#~=+$%^&]+", "replacement": " "}
     ]
 }
 
