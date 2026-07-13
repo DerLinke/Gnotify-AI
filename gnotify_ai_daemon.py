@@ -210,6 +210,19 @@ def main():
             log_message(f"[{time.asctime()}] paplay error: {e}\n")
             return False
 
+    def play_fallback_sound():
+        log_message(f"[{time.asctime()}] Playing fallback sound\n")
+        candidates = [
+            "/usr/share/sounds/freedesktop/stereo/message.oga",
+            "/usr/share/sounds/freedesktop/stereo/bell.oga",
+            "/usr/share/sounds/gnome/default/alerts/drip.ogg",
+            "/usr/share/sounds/sound-icons/prompt.wav"
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                play_audio(c)
+                return
+
     # Spooler task processor
     def process_spooler_task(task):
         action = task["action"]
@@ -263,6 +276,7 @@ def main():
                     
                     if status != 200:
                         log_message(f"[{time.asctime()}] TTS request failed with status {status}\n")
+                        play_fallback_sound()
                         return
                         
                     is_json = False
@@ -274,10 +288,12 @@ def main():
                         
                     if is_json:
                         log_message(f"[{time.asctime()}] TTS request failed: Invalid audio format (received JSON response)\n")
+                        play_fallback_sound()
                         return
                         
                     if not response_body or len(response_body) == 0:
                         log_message(f"[{time.asctime()}] TTS request failed: Empty response payload. Purging.\n")
+                        play_fallback_sound()
                         return
                         
                     try:
@@ -303,12 +319,16 @@ def main():
                             
             except urllib.error.HTTPError as e:
                 log_message(f"[{time.asctime()}] TTS request failed with status {e.code}\n")
+                play_fallback_sound()
             except urllib.error.URLError as e:
                 log_message(f"[{time.asctime()}] TTS request failed: {e.reason}\n")
+                play_fallback_sound()
             except (socket.timeout, TimeoutError):
                 log_message(f"[{time.asctime()}] TTS request failed: timeout\n")
+                play_fallback_sound()
             except Exception as e:
                 log_message(f"[{time.asctime()}] TTS request failed: {e}\n")
+                play_fallback_sound()
 
     # Spooler background worker loop
     def spooler_worker():

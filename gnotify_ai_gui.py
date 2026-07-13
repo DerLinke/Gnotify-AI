@@ -12,6 +12,8 @@ import threading
 import time
 import re
 import signal
+import urllib.request
+import urllib.error
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 
@@ -281,14 +283,17 @@ class GnotifyGUI(ctk.CTk):
         self.status_lbl = ctk.CTkLabel(self.header_frame, text="Service Status: CHECKING...", font=ctk.CTkFont(size=14, weight="bold"))
         self.status_lbl.grid(row=0, column=1, padx=20, pady=15, sticky="e")
         
+        self.ai_status_lbl = ctk.CTkLabel(self.header_frame, text="AI Server: CHECKING...", font=ctk.CTkFont(size=14, weight="bold"))
+        self.ai_status_lbl.grid(row=0, column=2, padx=20, pady=15, sticky="e")
+        
         self.start_btn = ctk.CTkButton(self.header_frame, text="Start", width=80, fg_color="#2ecc71", hover_color="#27ae60", command=self.start_service)
-        self.start_btn.grid(row=0, column=2, padx=5, pady=15)
+        self.start_btn.grid(row=0, column=3, padx=5, pady=15)
         
         self.stop_btn = ctk.CTkButton(self.header_frame, text="Stop", width=80, fg_color="#e74c3c", hover_color="#c0392b", command=self.stop_service)
-        self.stop_btn.grid(row=0, column=3, padx=5, pady=15)
+        self.stop_btn.grid(row=0, column=4, padx=5, pady=15)
         
         self.restart_btn = ctk.CTkButton(self.header_frame, text="Restart", width=80, command=self.restart_service)
-        self.restart_btn.grid(row=0, column=4, padx=10, pady=15)
+        self.restart_btn.grid(row=0, column=5, padx=10, pady=15)
         
         # 2. Main Tab View
         self.tabview = ctk.CTkTabview(self)
@@ -319,6 +324,7 @@ class GnotifyGUI(ctk.CTk):
         
         # Start Service Status Loop
         self.refresh_systemd_status()
+        self.refresh_ai_status()
         
         # Handle cleanup
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -411,6 +417,32 @@ class GnotifyGUI(ctk.CTk):
             pass
 
     # Dynamic status monitoring
+    def refresh_ai_status(self):
+        def run():
+            api_url = self.config_data.get("api_url", "https://ai.dan.jetzt/v1")
+            status_text = "AI Server: OFFLINE"
+            color = "#e74c3c"
+            try:
+                req = urllib.request.Request(f"{api_url.rstrip('/')}/models")
+                with urllib.request.urlopen(req, timeout=3.0) as response:
+                    if response.getcode() == 200:
+                        data = json.loads(response.read().decode('utf-8'))
+                        models = [m.get("id", "") for m in data.get("data", [])]
+                        if "kokoro-de" in models:
+                            status_text = "AI Server: ONLINE (kokoro-de)"
+                            color = "#2ecc71"
+                        elif "kokoro" in models:
+                            status_text = "AI Server: ONLINE (kokoro)"
+                            color = "#2ecc71"
+                        else:
+                            status_text = "AI Server: ONLINE (No TTS)"
+                            color = "#f1c40f"
+            except Exception:
+                pass
+            self.after(0, lambda: self.ai_status_lbl.configure(text=status_text, text_color=color))
+            self.after(5000, self.refresh_ai_status)
+        threading.Thread(target=run, daemon=True).start()
+
     def refresh_systemd_status(self):
         def run():
             try:
