@@ -14,6 +14,8 @@ import re
 import signal
 import urllib.request
 import urllib.error
+import webbrowser
+from PIL import Image
 import customtkinter as ctk
 from tkinter import messagebox, filedialog
 
@@ -355,8 +357,21 @@ class GnotifyGUI(ctk.CTk):
         self.header_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
         self.header_frame.grid_columnconfigure(1, weight=1)
         
-        self.title_lbl = ctk.CTkLabel(self.header_frame, text="GNOTIFY AI", font=ctk.CTkFont(size=20, weight="bold"))
-        self.title_lbl.grid(row=0, column=0, padx=20, pady=15, sticky="w")
+        # Logo + Title
+        self.title_frame = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        self.title_frame.grid(row=0, column=0, padx=20, pady=15, sticky="w")
+        
+        logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+        if os.path.exists(logo_path):
+            try:
+                logo_img = ctk.CTkImage(light_image=Image.open(logo_path), dark_image=Image.open(logo_path), size=(30, 30))
+                self.logo_lbl = ctk.CTkLabel(self.title_frame, image=logo_img, text="")
+                self.logo_lbl.pack(side="left", padx=(0, 10))
+            except Exception:
+                pass
+                
+        self.title_lbl = ctk.CTkLabel(self.title_frame, text="GNOTIFY AI", font=ctk.CTkFont(size=20, weight="bold"))
+        self.title_lbl.pack(side="left")
         
         self.status_lbl = ctk.CTkLabel(self.header_frame, text="Service Status: CHECKING...", font=ctk.CTkFont(size=14, weight="bold"))
         self.status_lbl.grid(row=0, column=1, padx=20, pady=15, sticky="e")
@@ -397,8 +412,12 @@ class GnotifyGUI(ctk.CTk):
         # 3. Footer Branding Bar
         self.footer_frame = ctk.CTkFrame(self, height=30, corner_radius=0, fg_color="transparent")
         self.footer_frame.grid(row=2, column=0, sticky="ew", padx=0, pady=0)
-        self.footer_lbl = ctk.CTkLabel(self.footer_frame, text="DerLinke Software Zentrale | Web: https://derlinke.github.io/", font=ctk.CTkFont(size=11))
-        self.footer_lbl.pack(pady=5)
+        self.footer_lbl1 = ctk.CTkLabel(self.footer_frame, text="DerLinke Software Zentrale | ", font=ctk.CTkFont(size=11))
+        self.footer_lbl1.pack(side="left", padx=(20, 0), pady=5)
+        
+        self.footer_link = ctk.CTkLabel(self.footer_frame, text="Web: https://derlinke.github.io/", font=ctk.CTkFont(size=11, underline=True), text_color="#3498db", cursor="hand2")
+        self.footer_link.pack(side="left", pady=5)
+        self.footer_link.bind("<Button-1>", lambda e: webbrowser.open("https://derlinke.github.io/"))
         
         # Start Log Tailer
         self.log_tailer = LogTailer(self.log_path, self.queue_log_update)
@@ -1026,8 +1045,31 @@ class GnotifyGUI(ctk.CTk):
     def on_closing(self):
         # Stop log tailer thread
         self.log_tailer.stop()
-        self.destroy()
-        show_footer()
+        
+        # Show custom exit dialog
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Auf Wiedersehen!")
+        dialog.geometry("450x200")
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        lbl = ctk.CTkLabel(dialog, text="Vielen Dank für die Nutzung von Gnotify-AI!", font=ctk.CTkFont(size=16, weight="bold"))
+        lbl.pack(pady=(20, 10))
+        
+        lbl2 = ctk.CTkLabel(dialog, text="Entdecke weitere nützliche und kostenlose Tools von uns:")
+        lbl2.pack(pady=(0, 5))
+        
+        link = ctk.CTkLabel(dialog, text="https://derlinke.github.io/", text_color="#3498db", cursor="hand2", font=ctk.CTkFont(underline=True))
+        link.pack(pady=(0, 20))
+        link.bind("<Button-1>", lambda e: webbrowser.open("https://derlinke.github.io/"))
+        
+        def close_all():
+            dialog.destroy()
+            self.destroy()
+            show_footer()
+            
+        btn = ctk.CTkButton(dialog, text="Beenden", fg_color="#e74c3c", hover_color="#c0392b", command=close_all)
+        btn.pack()
 
 def main():
     show_banner()
